@@ -67,21 +67,27 @@ class TranslatePlugin(MaiBotPlugin):
         self.results.clear()
 
     @HookHandler("chat.receive.after_process", name="capture_translation_image",
-                 description="为直接附图翻译短暂保留当前消息原图", mode=HookMode.BLOCKING,
+                 description="规范引用命令匹配文本并短暂保留直接附图原图", mode=HookMode.BLOCKING,
                  order=HookOrder.EARLY, error_policy=ErrorPolicy.SKIP)
-    async def capture(self, message: Optional[Dict[str, JsonValue]] = None, **kwargs: JsonValue) -> None:
-        del kwargs
+    async def capture(self, message: Optional[Dict[str, JsonValue]] = None, **kwargs: JsonValue) -> Optional[Dict[str, JsonValue]]:
         now = time.monotonic()
         self.images = {key: value for key, value in self.images.items() if now - value[0] < 60}
         if message is None:
             return
         incoming = Incoming.model_validate(message)
         text = "".join(s.data for s in incoming.raw_message if s.type == "text" and isinstance(s.data, str))
+        if not re.match(command_pattern(self.trigger()), text):
+            return None
         stream = message.get("session_id", "")
-        if incoming.has_images and re.match(command_pattern(self.trigger()), text) and isinstance(stream, str):
+        if incoming.has_images and isinstance(stream, str):
             if len(self.images) >= 16:
                 self.images.pop(next(iter(self.images)))
             self.images[(stream, incoming.message_id)] = (now, incoming)
+        # 宿主匹配 processed_plain_text，其中可能先出现 @、引用正文或 [image]。
+        # 只在原始文本段明确以命令开头时规范匹配文本，引用 ID、原图与路由原样保留。
+        normalized = dict(message)
+        normalized['processed_plain_text'] = text
+        return {'modified_kwargs': {**kwargs, 'message': normalized}}
 
     async def load_message(self, message_id: str, stream_id: str) -> Incoming:
         data = await self.ctx.message.get_by_id(message_id, stream_id=stream_id, include_binary_data=True)

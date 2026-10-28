@@ -23,7 +23,9 @@ MaiBot 插件，将聊天文字和图片里的文字翻译为简体中文。使�
 git clone https://github.com/riesaexe/maibot-index-translate.git plugins/maibot-index-translate
 ```
 
-本次首次公开版本为 **1.6.0 预发布**，图片复杂场景仍在改进。
+当前版本为 **1.6.1 预发布**，图片复杂场景仍在改进。
+
+1.6.1 修复了 QQ 引用、@提及或图片预览出现在命令前面时，宿主无法匹配翻译命令的问题。匹配以原始文字段为准，引用 ID 和原图保持不变；被引用正文中出现命令不会单独触发翻译。
 
 ## 设置
 
