@@ -25,7 +25,7 @@ MaiBot 插件，将聊天文字和图片里的文字翻译为简体中文。使�
 git clone https://github.com/riesaexe/maibot-index-translate.git plugins/maibot-index-translate
 ```
 
-当前版本为 **1.7.0 正式版**，图片复杂场景仍在改进。
+当前版本为 **[1.7.0 正式版](https://github.com/riesaexe/maibot-index-translate/releases/tag/v1.7.0)**，图片复杂场景仍在改进。
 
 1.7.0 新增 `plugin.prewarm_models` 启动预热开关，默认关闭。开启后延迟 30 秒，等待本插件没有翻译任务时，在后台依次加载并试运行漫画检测与日文 OCR 模型；不调用翻译 API、不发送聊天消息。预热完成或失败会写入插件日志。关闭开关或卸载插件后不再开始后续预热步骤；已经开始的原生下载或加载会完成当前步骤。
 
