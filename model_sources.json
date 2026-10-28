@@ -1,0 +1,14 @@
+{
+  "comic_text_detector": {
+    "project": "https://github.com/dmMaze/comic-text-detector",
+    "license": "GPL-3.0",
+    "url": "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx",
+    "sha256": "1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f"
+  },
+  "manga_ocr": {
+    "project": "https://github.com/kha-white/manga-ocr",
+    "model": "https://huggingface.co/kha-white/manga-ocr-base",
+    "revision": "aa6573bd10b0d446cbf622e29c3e084914df9741",
+    "license": "Apache-2.0"
+  }
+}
