@@ -1,6 +1,5 @@
 """Comic Text Detector ONNX 接口：文字块、语言类别与像素掩膜分开使用。"""
 from dataclasses import dataclass
-from pathlib import Path
 from threading import Lock
 from typing import List, Tuple
 import hashlib
@@ -12,6 +11,7 @@ import numpy as np
 import onnxruntime as ort
 from PIL import Image
 from rapidocr_onnxruntime.ch_ppocr_det.utils import DBPostProcess
+from .model_cache import model_path
 
 MODEL_URL = 'https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx'
 MODEL_SHA256 = '1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f'
@@ -38,9 +38,7 @@ def model_session() -> ort.InferenceSession:
     global _session
     if _session is not None:
         return _session
-    folder = Path(__file__).parent / '.models'
-    folder.mkdir(exist_ok=True)
-    path = folder / 'comictextdetector.pt.onnx'
+    path = model_path('comictextdetector.pt.onnx')
     if not path.exists():
         temporary = path.with_suffix('.download')
         digest = hashlib.sha256()
@@ -64,6 +62,12 @@ def model_session() -> ort.InferenceSession:
     settings.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
     _session = ort.InferenceSession(str(path), sess_options=settings, providers=['CPUExecutionProvider'])
     return _session
+
+
+def prewarm() -> None:
+    """与真实检测共用加载与推理锁，避免同时下载或创建会话。"""
+    with _lock:
+        infer(Image.new('RGB', (64, 64), 'white'))
 
 
 def infer(image: Image.Image) -> Tuple[List[Tuple[Box, bool, float]], np.ndarray, List[np.ndarray]]:

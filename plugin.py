@@ -18,6 +18,8 @@ from .image_geometry import rectify
 from .image_detection import chinese_only
 from .result_cache import ResultCache
 from .commands import DEFAULT_COMMAND, command_pattern
+from .model_cache import configure as configure_model_cache
+from .model_warmup import ModelWarmup
 from .config import PluginOptions as PluginOptions, TranslationConfig
 from .image_translation import UNREADABLE, Page, TranslationMappingError, batches, detect, parse_translations, payload, render
 from .translation import COMMAND_PATTERN, Incoming, Input, TranslationError, build_payload, extract, parse_response
@@ -33,6 +35,7 @@ class TranslatePlugin(MaiBotPlugin):
         self.results = ResultCache()
         self.region_limiter = anyio.CapacityLimiter(3)
         self.registered_command: str | None = None
+        self.warmup: ModelWarmup | None = None
 
     def trigger(self) -> str:
         return self.registered_command or self.configured_trigger()
@@ -44,6 +47,7 @@ class TranslatePlugin(MaiBotPlugin):
             return DEFAULT_COMMAND
 
     def get_components(self) -> list[dict[str, JsonValue]]:
+        # 保留真实触发词，兼容其他插件根据已注册命令正则主动让路。
         components = super().get_components()
         self.registered_command = self.configured_trigger()
         for component in components:
@@ -54,17 +58,37 @@ class TranslatePlugin(MaiBotPlugin):
         return components
 
     async def on_load(self) -> None:
+        configure_model_cache(self.ctx.paths.data_dir)
+        self.configure_warmup()
         self.ctx.logger.info('中文翻译已加载，命令：%s', self.trigger())
 
     async def on_unload(self) -> None:
+        if self.warmup is not None:
+            self.warmup.stop()
+            self.warmup = None
         self.images.clear()
         self.results.clear()
 
     async def on_config_update(self, scope: str, config_data: Dict[str, JsonValue], version: str) -> None:
-        # SDK 在调用前已更新 self.config；后续命令直接读取新配置。
+        # 清理结果缓存；命令沿用注册时的触发词，重载插件后切换。
         del scope, config_data, version
         self.images.clear()
         self.results.clear()
+        self.configure_warmup()
+
+    def configure_warmup(self) -> None:
+        cfg = TranslationConfig.model_validate(self.config.model_dump()).plugin
+        if not (cfg.enabled and cfg.prewarm_models and cfg.comic_detector != 'off'):
+            if self.warmup is not None:
+                self.warmup.stop()
+                self.warmup = None
+            return
+        if self.warmup is None:
+            from .comic_detector import prewarm as warm_detector
+            from .comic_ocr import prewarm as warm_ocr
+            self.warmup = ModelWarmup(self.ctx.logger, lambda: not self.busy,
+                                     (('漫画检测', warm_detector), ('日文 OCR', warm_ocr)))
+            self.warmup.start()
 
     @HookHandler("chat.receive.after_process", name="capture_translation_image",
                  description="规范引用命令匹配文本并短暂保留直接附图原图", mode=HookMode.BLOCKING,
@@ -191,7 +215,7 @@ class TranslatePlugin(MaiBotPlugin):
             right = await self.translate_regions(client, Page(page.image, page.regions[middle:]), model)
             return left + right
 
-    @Command("translate", description="/rs 翻译：将文字或图片翻译为中文，支持引用消息",
+    @Command("translate", description="将文字或图片翻译为中文，触发词见插件设置，支持引用消息",
              pattern=COMMAND_PATTERN, timeout_ms=360_000)
     async def translate(self, stream_id: str = "", message: Optional[Dict[str, JsonValue]] = None,
                         **kwargs: JsonValue) -> tuple[bool, str, int]:
