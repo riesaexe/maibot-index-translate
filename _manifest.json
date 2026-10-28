@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "id": "riesa.translate",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "name": "中文翻译",
   "description": "使用 Index-Translate 将聊天文字和图片翻译为中文，支持自定义触发命令（默认 /rs 翻译）与引用消息",
   "author": {"name": "RiESA", "url": "https://github.com/riesaexe"},
@@ -26,7 +26,7 @@
     {"type": "python_package", "name": "numpy", "version_spec": ">=1.26"},
     {"type": "python_package", "name": "opencv-python", "version_spec": ">=4.5"}
   ],
-  "plugin_type": "extension",
+  "plugin_type": "tool",
   "capabilities": ["send.text", "send.hybrid", "message.get_by_id"],
   "i18n": {"default_locale": "zh-CN", "supported_locales": ["zh-CN"]}
 }
